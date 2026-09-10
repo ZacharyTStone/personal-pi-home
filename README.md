@@ -1,6 +1,6 @@
 # personal-pi-home
 
-Boilerplate for the always-on box in the corner of your flat.
+Boilerplate based on a my personal Rasppery Pi project I created with 10+ jobs.
 
 Fork it, tell it where to reach you, and start adding small useful things
 that happen on a schedule. It ships with **one job that does nothing** —
