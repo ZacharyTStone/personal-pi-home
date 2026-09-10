@@ -1,22 +1,13 @@
 # Setup
 
-Fork it, follow these, done. Four steps, and you can stop after step 2
-with a working hub on your laptop — the Pi is step 4.
-
-| # | What | For | Do it now? |
-|---|------|-----|------------|
-| 0 | [Fork and run it](#0-fork-and-run-it) | Seeing it work | ✅ 5 min |
-| 1 | [One notification channel](#1-one-notification-channel) | Messages on your phone | ✅ 2 min |
-| 2 | [Make it yours](#2-make-it-yours) | Your timezone, your jobs | ✅ 10 min |
-| 3 | [Commit it](#3-commit-it) | Your fork is your hub | ✅ 1 min |
-| 4 | [Put it on a box](#4-put-it-on-a-box) | Always-on | ⏳ when you have one |
+Steps 1–4 run on your laptop (~20 minutes). Step 5 puts it on a box.
 
 ---
 
-## 0. Fork and run it
+## 1. Run it
 
-Click **Fork** on GitHub — or `gh repo fork <owner>/personal-pi-home` —
-then clone **your** fork:
+Fork on GitHub (or `gh repo fork <owner>/personal-pi-home`), then clone
+your fork:
 
 ```bash
 git clone https://github.com/<you>/personal-pi-home.git
@@ -29,97 +20,85 @@ python3 -m venv .venv
 .venv/bin/python -m src.main --run hello --dry-run
 ```
 
-You should see a hello message printed to your terminal. That's the whole
-pipeline — schedule, state, rendering, delivery — working with nothing
-configured, no `.env`, and no accounts.
+The hello message prints to your terminal.
 
-```bash
-.venv/bin/python -m src.main --doctor
+## 2. Set your timezone
+
+In `hub/config.yaml`:
+
+```yaml
+hub_name: my-pi-home
+timezone: Europe/Lisbon        # IANA name
 ```
 
-`--doctor` is the command to come back to whenever something isn't
-working. It prints which channels have credentials, what timezone the hub
-thinks it's in, where its state lives, and which jobs are on.
-
-## 1. One notification channel
-
-Pick one from [`NOTIFIERS.md`](NOTIFIERS.md). **ntfy** takes about two
-minutes and needs no account at all, so start there unless you have a
-preference.
+Every schedule is local wall-clock time in this zone, regardless of the
+host clock. Verify:
 
 ```bash
+.venv/bin/python -m src.main --list
+```
+
+The header shows the timezone and current local time. The **NEXT** column
+shows when each job will fire.
+
+## 3. Set up a notification channel
+
+Pick one from [NOTIFIERS.md](NOTIFIERS.md). ntfy needs no account and
+takes two minutes.
+
+```bash
+cd ..                   # repo root
 cp .env.example .env
-$EDITOR .env            # fill in that one channel
+$EDITOR .env            # fill in one channel
 ```
 
-Point the jobs at it in `hub/config.yaml`:
+Route jobs to it in `hub/config.yaml`:
 
 ```yaml
 notify:
   default_channels: [ntfy]
 ```
 
-Check it's live, then send yourself something for real:
+Verify, then send for real:
 
 ```bash
 cd hub
-.venv/bin/python -m src.main --doctor      # your channel should show ✔
-.venv/bin/python -m src.main --run hello   # no --dry-run: this actually sends
+.venv/bin/python -m src.main --doctor      # your channel shows ✔ and is the default route
+.venv/bin/python -m src.main --run hello   # without --dry-run, this sends
 ```
 
-If that arrives on your phone, everything after this is just writing jobs.
+Credentials in `.env` do nothing on their own — `config.yaml` decides
+where messages go. `--doctor` warns if a configured channel isn't routed
+anywhere.
 
-## 2. Make it yours
+## 4. Write a job and commit
 
-**`hub/config.yaml` first:**
-
-```yaml
-hub_name: my-pi-home
-timezone: Europe/Lisbon        # ← change this before anything else
-```
-
-The timezone matters more than it looks. Every schedule is local
-wall-clock time in that zone, whatever the host clock says — get it wrong
-and your 07:00 message arrives at 07:00 UTC.
-
-**Then write a job.** Copy `hub/src/jobs/hello.py`, give it a new `NAME`,
-and drop it in `hub/src/jobs/`. It's live immediately — no registry to
-edit:
+Copy `hub/src/jobs/hello.py`, change `NAME`, save it in
+`hub/src/jobs/`:
 
 ```bash
 .venv/bin/python -m src.main --list
 .venv/bin/python -m src.main --run my_job --dry-run
 ```
 
-Full walkthrough, including the three shapes most home-hub jobs take:
-[`ADD_A_JOB.md`](ADD_A_JOB.md).
+See [ADD_A_JOB.md](ADD_A_JOB.md) for the full API and common job patterns.
 
-Keep `hello` enabled even once you have real jobs. A daily heartbeat that
-stops arriving is how you find out the box died — the failure mode of an
-always-on box is silence, and silence looks exactly like a quiet day.
-
-## 3. Commit it
-
-Your fork *is* your hub. Push your jobs and your config to it — that's
-what the box will pull from.
+Push it — your fork is what the box pulls from:
 
 ```bash
-cd hub && .venv/bin/python -m pytest -q     # takes under a second
-cd .. && git add . && git commit -m "My jobs" && git push
+cd hub && .venv/bin/python -m pytest -q
+cd .. && git add . && git commit -m "Add my_job" && git push
 ```
 
-`.env` is gitignored, so your secrets stay on your machines. `config.yaml`
-is committed on purpose: `git log config.yaml` becomes the record of how
-your hub got tuned, which is genuinely useful six months later when you
-wonder why something is set to 40.
+`.env` is gitignored. `config.yaml` is committed, so your schedules and
+settings are versioned.
 
-## 4. Put it on a box
+## 5. Put it on a box
 
-Full walkthrough from a boxed Pi to a running hub, including getting it
-pulling from your fork and the edit → push → deploy loop:
-**[`PI_SETUP.md`](PI_SETUP.md)**.
+Full walkthrough — Pi setup, Docker, pulling from your fork, and the
+deploy loop: **[PI_SETUP.md](PI_SETUP.md)**.
 
-The short version, if you already have Docker on something:
+Short version if Docker is already installed:
 
 ```bash
 git clone https://github.com/<you>/personal-pi-home.git
@@ -128,22 +107,29 @@ cp .env.example .env && $EDITOR .env
 docker compose up -d
 ```
 
-Dashboard at `http://<box-ip>:8090`. To reach it from outside the house,
-don't port-forward it — see [`TAILSCALE.md`](TAILSCALE.md).
+Dashboard: `http://<box-ip>:8090`. For access from outside your network,
+use [Tailscale](TAILSCALE.md) rather than port forwarding — the dashboard
+has no authentication.
 
-**Don't delete `hub/data/`.** It holds the SQLite state that tells the hub
-what it has already sent. Losing it means every job re-notifies you about
-everything.
+Do not delete `hub/data/`. It holds the record of what has already been
+sent; without it every job re-notifies you about everything.
 
 ---
 
-## When something doesn't work
+## Troubleshooting
 
-| Symptom | Where to look |
+Start with `--doctor` (channels, timezone, state location, enabled jobs)
+and `--list` (schedules and next run). On a box, prefix with
+`docker compose exec hub`.
+
+| Symptom | Cause / fix |
 |---|---|
-| Nothing arrives | `--doctor` — is your channel ✔? |
-| Messages at the wrong hour | `timezone` in `config.yaml`, not `TZ` |
-| A job never runs | `--list` — is it `[on ]`? Is its window still ahead? |
-| A job runs but stays quiet | Normal for most jobs. Check the run count on the dashboard. |
-| A job is failing | Dashboard shows the error; `docker compose logs hub` has the traceback |
-| Everything re-sent after a deploy | The `hub/data` directory was lost |
+| Nothing arrives | `--doctor`: is your channel `✔`, and is it in `default_channels` or a route? A configured channel that nothing routes to is never used. |
+| Wrong hour | `timezone` in `config.yaml`. `TZ` only affects log timestamps. |
+| Started it, nothing happened | `--list` → **NEXT**. A `daily_at: "18:00"` job started at noon waits six hours. Use `--run <job>` to fire now. |
+| A job never runs | `--list`: is it `[on ]`? Check `enabled` in `config.yaml` and `ENABLED` in the job file. |
+| A job runs but sends nothing | Expected if the job had nothing to report. Check the run count on the dashboard. |
+| A job is failing | Error on the dashboard; traceback in `docker compose logs hub` or `hub/data/hub.log`. |
+| Edited `config.yaml`, no change | `docker compose restart hub` — config is read at startup. |
+| Added a job file, not listed | `docker compose up -d --build` — job code is baked into the image. |
+| Everything re-sent after a deploy | `hub/data/` was lost. |

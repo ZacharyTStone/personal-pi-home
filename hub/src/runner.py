@@ -2,20 +2,14 @@
 
 Everything a job doesn't have to think about happens here.
 
-**A job that raises is a job that retries.** That's the whole error
-contract: if you can't do your work, raise. The hub logs it, records the
-failed run so the dashboard shows it, leaves the schedule window open,
-and moves on. Nothing else in the process notices.
+**A job that raises is a job that retries.** That's the error contract:
+if a job can't do its work, it raises. The hub logs it, records the failed
+run for the dashboard, leaves the schedule window open, and continues —
+one failing job never stops the others.
 
-That last part matters more than it sounds. Sources change their HTML,
-APIs get retired, and the job you added at midnight has a typo in it. A
-hub that dies at 3am because one feed went away is worse than no hub: you
-stop trusting it, and then you stop noticing when the *other* jobs stop
-too.
-
-**A failed pass doesn't consume the window.** `last_run` is only written
+**A failed pass doesn't consume the window.** `last_run` is written only
 after a clean pass, so a job that couldn't fetch at 07:00 sends at 07:15
-instead of skipping the day.
+rather than skipping the day.
 """
 from __future__ import annotations
 

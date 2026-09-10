@@ -1,24 +1,16 @@
 """Notification transports, and the router that picks between them.
 
-The original this is generalised from was welded to one chat app. That
-was fine until it wasn't: every new job had to re-import it, dry-run was
-special-cased inside it, and swapping the channel meant touching every
-job. So here the jobs never name a transport. They build a `Message` and
-hand it to `ctx.notify.send(...)`; the router decides where it goes based
-on `config.yaml → notify` plus whichever channels have credentials in the
-environment.
+Jobs never name a transport. They build a `Message` and hand it to
+`ctx.send(...)`; the router picks the destination from `config.yaml →
+notify` plus whichever channels have credentials in the environment. That
+makes switching channels a config change rather than a code change.
 
-That inversion is what makes this repo forkable: pick your channels in
-`.env`, and every job follows.
+Three rules, so a half-configured box still behaves:
 
-Three rules the router enforces so a half-configured box still behaves:
-
-1. **Dry-run always wins.** `--dry-run` prints and sends nothing, ever.
-2. **Unconfigured channels are skipped, not fatal.** No Telegram token
-   just means no Telegram.
-3. **Console is the floor.** If nothing is configured, messages go to the
-   log instead of vanishing — which is what makes `git clone && run` a
-   real preview of the whole hub with zero setup.
+1. `--dry-run` prints and never sends.
+2. Unconfigured channels are skipped, not treated as errors.
+3. Console is the fallback: with nothing configured, messages go to the
+   log rather than being discarded.
 """
 from __future__ import annotations
 

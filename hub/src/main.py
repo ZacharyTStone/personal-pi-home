@@ -62,18 +62,55 @@ def setup_logging(verbose: bool, log_path: Path, retention_days: int = 14) -> No
         logging.getLogger(noisy).setLevel(logging.WARNING)
 
 
+def _last_run(config: Config, name: str):
+    """A job's last successful run, without creating its database.
+
+    `--list` must be safe to run on a machine that has never run the hub,
+    so this reads the file only if it already exists.
+    """
+    path = config.db_path(name)
+    if not path.exists():
+        return None
+    from .store import JobStore
+    with JobStore(path) as store:
+        return store.last_run
+
+
+def _when(settings, last_run, now) -> str:
+    """"due now" / "in 3h" / "Mon 08:00" — whichever is clearest."""
+    nxt = settings.schedule.next_run(last_run, now)
+    delta = (nxt - now).total_seconds()
+    if delta <= 60:
+        return "due now"
+    if delta < 3600:
+        return f"in {int(delta // 60)} min"
+    if delta < 86400:
+        return f"in {delta / 3600:.0f}h"
+    return nxt.strftime("%a %H:%M")
+
+
 def cmd_list(config: Config) -> int:
     registry = all_jobs()
     if not registry:
         print("No jobs found. Add one in hub/src/jobs/ — see docs/ADD_A_JOB.md.")
         return 0
-    print(f"\n{config.hub_name} — {len(registry)} job(s), timezone {clock.timezone_name()}\n")
+    now = clock.now()
+    print(f"\n{config.hub_name} — {len(registry)} job(s), timezone "
+          f"{clock.timezone_name()} (local time now: {now:%H:%M})\n")
+    print(f"{'':8}{'JOB':<12} {'SCHEDULE':<18} {'NEXT':<10} {'LAST RUN':<12} WHAT IT DOES")
     for name, module in sorted(registry.items()):
         settings = config.settings_for(module)
         flag = "on " if settings.enabled else "off"
-        summary = getattr(module, "SUMMARY", "")
-        print(f"  [{flag}] {name:<12} {settings.schedule.describe():<18} {summary}")
-    print("\nRun one now:  python -m src.main --run <name> --dry-run\n")
+        last = _last_run(config, name)
+        # An off job has no next run — saying "in 3h" about a job that
+        # will never fire is exactly the confusion this column exists to
+        # prevent.
+        nxt = _when(settings, last, now) if settings.enabled else "—"
+        print(f"  [{flag}] {name:<12} {settings.schedule.describe():<18} "
+              f"{nxt:<10} {clock.humanize_delta(last, now):<12} "
+              f"{getattr(module, 'SUMMARY', '')}")
+    print("\nRun one now, ignoring its schedule:"
+          "\n  python -m src.main --run <name> --dry-run\n")
     return 0
 
 
@@ -86,12 +123,24 @@ def cmd_doctor(config: Config) -> int:
     print(f"  timezone    {clock.timezone_name()}   (local time now: "
           f"{clock.now():%Y-%m-%d %H:%M})")
 
+    status = router.status()
     print("\n  channels")
-    for name, ok in router.status().items():
+    for name, ok in status.items():
         mark = "✔" if ok else "·"
         note = "" if ok else "  (not configured — see docs/NOTIFIERS.md)"
         print(f"    {mark} {name}{note}")
     print(f"    default route: {', '.join(router.default_channels)}")
+
+    # Credentials in .env do nothing until config.yaml routes something to
+    # them. Saying so here saves the "my channel shows ✔ but nothing
+    # arrives" hour.
+    routed = set(router.default_channels)
+    for targets in router.routes.values():
+        routed.update(targets)
+    unused = [n for n, ok in status.items() if ok and n != "console" and n not in routed]
+    if unused:
+        print(f"\n  ! {', '.join(unused)} configured but nothing is routed to it.")
+        print("    Add it to config.yaml → notify.default_channels or notify.routes.")
 
     registry = all_jobs()
     enabled = config.enabled_job_names(registry)

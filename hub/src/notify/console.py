@@ -1,8 +1,7 @@
-"""The always-available channel: print it.
+"""Prints the message.
 
-This is what makes `--dry-run` a real preview and what catches messages
-on a box where nothing else is set up yet. It is deliberately the only
-channel that is always `configured`.
+The only channel that is always configured, so a box with nothing set up
+still shows what it would have sent.
 """
 from __future__ import annotations
 

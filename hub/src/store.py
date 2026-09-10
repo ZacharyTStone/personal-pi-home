@@ -1,23 +1,18 @@
 """Per-job SQLite state: what we've seen, what we've sent, how runs went.
 
-**One file per job** (`data/<job>.db`). It would be simpler to share one
-database, and it would be wrong: jobs restart independently, some of them
-write on a 2-minute tick, and a schema change to one shouldn't be able to
-lock or corrupt another. Isolation here costs nothing (SQLite files are
-free) and buys you the ability to delete one job's state — or the job
-itself — without touching anything else.
+**One file per job** (`data/<job>.db`). Sharing one database would let a
+schema change or a lock in one job affect another, and would make removing
+a job's state a careful DELETE rather than an `rm`.
 
-Four tables, and every job gets all four whether it uses them or not:
+Four tables, created for every job whether it uses them or not:
 
-* ``meta``  — key/value scratch space. This is where a window-shaped job
-  records ``last_run``, which is the whole basis of catch-up scheduling.
-* ``seen``  — dedup. "Have I already told them about this?" Keyed on
-  whatever stable id the job computes.
-* ``sends`` — an audit log of messages actually delivered. What the
-  dashboard shows, and what you read at 2am when you're sure it double-sent.
-* ``runs``  — one row per attempt, including failures. A job that has been
-  quietly erroring for a week looks identical to a healthy quiet job
-  without this.
+* ``meta``  — key/value storage. Holds ``last_run``, which is what makes
+  catch-up scheduling work.
+* ``seen``  — deduplication, keyed on whatever stable id the job computes.
+* ``sends`` — messages actually delivered; what the dashboard shows.
+* ``runs``  — one row per attempt, including failures, so a job that has
+  been erroring for a week is distinguishable from a job with nothing to
+  report.
 """
 from __future__ import annotations
 

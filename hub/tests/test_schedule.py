@@ -123,3 +123,50 @@ def test_poll_seconds():
     assert Schedule.parse("15m").poll_seconds() == 900
     # Window jobs wake often enough to make catch-up granular.
     assert Schedule.parse({"daily_at": "07:00"}).poll_seconds() == 900
+
+
+# ── next_run: what `--list` shows ──
+def test_next_run_is_now_when_due():
+    schedule = Schedule.parse({"daily_at": "07:00"})
+    now = datetime(2026, 6, 1, 9, 0)
+    assert schedule.next_run(None, now) == now
+
+
+def test_next_run_daily_before_the_window_is_today():
+    schedule = Schedule.parse({"daily_at": "07:00"})
+    assert schedule.next_run(None, datetime(2026, 6, 1, 5, 0)) == datetime(2026, 6, 1, 7, 0)
+
+
+def test_next_run_daily_after_a_served_window_is_tomorrow():
+    schedule = Schedule.parse({"daily_at": "07:00"})
+    served = datetime(2026, 6, 1, 7, 0)
+    assert schedule.next_run(served, datetime(2026, 6, 1, 9, 0)) == datetime(2026, 6, 2, 7, 0)
+
+
+def test_next_run_interval_counts_from_the_last_run():
+    schedule = Schedule.parse("1h")
+    last = datetime(2026, 6, 1, 9, 0)
+    assert schedule.next_run(last, datetime(2026, 6, 1, 9, 30)) == datetime(2026, 6, 1, 10, 0)
+
+
+def test_next_run_weekly_before_the_window_is_this_week():
+    schedule = Schedule.parse({"weekly_at": "mon 08:00"})
+    served = datetime(2026, 5, 25, 8, 0)
+    # 2026-06-01 is a Monday; 07:00 is still before that day's window.
+    assert schedule.next_run(served, datetime(2026, 6, 1, 7, 0)) == datetime(2026, 6, 1, 8, 0)
+
+
+def test_next_run_weekly_after_a_served_window_is_next_week():
+    schedule = Schedule.parse({"weekly_at": "mon 08:00"})
+    served = datetime(2026, 6, 1, 8, 0)
+    assert schedule.next_run(served, datetime(2026, 6, 3, 9, 0)) == datetime(2026, 6, 8, 8, 0)
+
+
+def test_next_run_is_never_in_the_past():
+    """--list must not claim a job is overdue when the scheduler would not
+    in fact run it."""
+    now = datetime(2026, 6, 1, 12, 0)
+    for spec, last in (({"daily_at": "07:00"}, datetime(2026, 6, 1, 7, 0)),
+                       ({"weekly_at": "wed 08:00"}, datetime(2026, 5, 27, 8, 0)),
+                       ("2h", datetime(2026, 6, 1, 11, 0))):
+        assert Schedule.parse(spec).next_run(last, now) >= now
