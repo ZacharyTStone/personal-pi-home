@@ -162,8 +162,9 @@ rebuilt or rewritten without the other noticing.
 
 No web UI for editing config — it's a YAML file you edit and a container
 you restart. No plugin system — jobs are Python files. No auth on the
-dashboard — it's a LAN page, and if you need it remotely, Tailscale is
-twenty minutes and better than anything this repo would ship. No
+dashboard — it's a LAN page, and if you need it remotely,
+[Tailscale](TAILSCALE.md) is twenty minutes and better than anything this
+repo would ship. No
 database beyond SQLite.
 
 Each of those would be a reasonable thing to add to *your* fork if you

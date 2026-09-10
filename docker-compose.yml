@@ -40,7 +40,8 @@ services:
       - ./hub/config.yaml:/app/config.yaml:ro
     ports:
       # Bound to the LAN with no auth — fine inside the house, not fine
-      # port-forwarded to the internet. See docs/PI_SETUP.md → remote access.
+      # port-forwarded to the internet. To reach it from outside, see
+      # docs/TAILSCALE.md — do not forward this port.
       - "8090:8090"
     restart: unless-stopped
     depends_on:

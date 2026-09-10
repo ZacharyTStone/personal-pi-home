@@ -7,8 +7,11 @@ that happen on a schedule. It ships with **one job that does nothing** —
 on purpose — a **status page**, and a **Docker setup**. Everything else is
 yours to write.
 
+**Fork it**, then:
+
 ```bash
-git clone <your fork> && cd personal-pi-home/hub
+git clone https://github.com/<you>/personal-pi-home.git
+cd personal-pi-home/hub
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt -r requirements-dev.txt
 
 .venv/bin/python -m src.main --list                  # what's in the box
@@ -19,6 +22,9 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt -r requiremen
 No `.env`, no API keys, no Raspberry Pi needed. It runs, prints to your
 terminal, and tells you what's missing. That's deliberate: you should see
 the whole thing work before committing to setting anything up.
+
+Then: [set up a channel and write a job](docs/SETUP.md) → [put it on a
+box](docs/PI_SETUP.md) → [reach it from anywhere](docs/TAILSCALE.md).
 
 ---
 
@@ -38,6 +44,7 @@ personal-pi-home/
 │       ├── store.py       # per-job SQLite state
 │       └── runner.py      # the loop
 ├── dashboard/             # read-only status page on :8090
+├── scripts/deploy.sh      # pull from your fork, rebuild, restart
 └── docs/                  # setup, channels, adding a job, design notes
 ```
 
@@ -123,9 +130,21 @@ Status page at `http://<its-ip>:8090` — what ran, what it sent, what
 broke, and a live log tail. It mounts the data volume **read-only**, so
 it can't corrupt the thing it's reporting on.
 
+Then the loop is: write and test jobs on your laptop, `git push`, and on
+the box `./scripts/deploy.sh` (pull, rebuild, restart) — or a cron line,
+if you'd rather push and forget.
+
 Same Python and same images on your laptop and on a Pi (they build for
-arm64 too). [`docs/SETUP.md`](docs/SETUP.md) is the checklist;
-[`docs/PI_SETUP.md`](docs/PI_SETUP.md) covers the hardware.
+arm64 too).
+
+| | |
+|---|---|
+| [`docs/SETUP.md`](docs/SETUP.md) | Fork → channel → your first job → committed |
+| [`docs/PI_SETUP.md`](docs/PI_SETUP.md) | A boxed Pi to a running hub, start to finish |
+| [`docs/TAILSCALE.md`](docs/TAILSCALE.md) | Reaching it from anywhere — and why not to port-forward |
+| [`docs/ADD_A_JOB.md`](docs/ADD_A_JOB.md) | The one that matters |
+| [`docs/NOTIFIERS.md`](docs/NOTIFIERS.md) | Per-channel walkthroughs |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Why it's built this way |
 
 ## Tests
 
