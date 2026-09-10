@@ -1,0 +1,56 @@
+# ─────────────────────────────────────────────────────────────
+#  personal-pi-home
+#
+#    hub        → runs your jobs on their schedules
+#    dashboard  → read-only status page on the LAN, port 8090
+#
+#  On the box:  cp .env.example .env && $EDITOR .env && docker compose up -d
+# ─────────────────────────────────────────────────────────────
+services:
+
+  hub:
+    build: ./hub
+    container_name: pi-hub
+    env_file: .env
+    environment:
+      TZ: ${TZ:-UTC}
+    volumes:
+      # SQLite state + logs. Survives restarts, rebuilds and image
+      # changes — without this the hub forgets what it has already sent
+      # and re-notifies you about everything on every deploy.
+      - ./hub/data:/app/data
+      # Live-mounted so you can retune a job and `docker compose restart
+      # hub` without a rebuild. Read-only: the container never edits it.
+      - ./hub/config.yaml:/app/config.yaml:ro
+    restart: unless-stopped
+    command: ["python", "-m", "src.main", "--loop"]
+
+  dashboard:
+    build: ./dashboard
+    container_name: pi-dashboard
+    environment:
+      TZ: ${TZ:-UTC}
+      DATA_DIR: /app/data
+      CONFIG_PATH: /app/config.yaml
+      LOG_PATH: /app/data/hub.log
+    volumes:
+      # READ-ONLY, deliberately: the status page cannot corrupt the state
+      # it reports on. See dashboard/app.py.
+      - ./hub/data:/app/data:ro
+      - ./hub/config.yaml:/app/config.yaml:ro
+    ports:
+      # Bound to the LAN with no auth — fine inside the house, not fine
+      # port-forwarded to the internet. See docs/PI_SETUP.md → remote access.
+      - "8090:8090"
+    restart: unless-stopped
+    depends_on:
+      - hub
+
+# One container runs every job. That's the right default on a small box —
+# a few MB of RAM rather than a container each, and one place to look when
+# something's wrong.
+#
+# If you ever want a job isolated so it can crash and restart on its own,
+# copy the `hub` service, give it `command: [..., "--loop", "<job>"]`, and
+# name the other jobs explicitly in the main service's command so it isn't
+# run twice. Same image, same code, narrower --loop.

@@ -1,0 +1,6 @@
+requests>=2.31,<3
+PyYAML>=6.0,<7
+python-dotenv>=1.0,<2
+# Timezone database — the python:slim images don't ship one, and without
+# it every schedule silently falls back to UTC.
+tzdata>=2024.1

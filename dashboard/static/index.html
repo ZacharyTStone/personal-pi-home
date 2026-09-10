@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>personal-pi-home</title>
+<style>
+  /* No build step, no CDN, no external assets. The dashboard has to work
+     on a LAN with the internet down — that's half of what it's for. */
+  :root {
+    --bg: #12141a; --panel: #1a1d26; --line: #272b36;
+    --text: #e6e8ee; --dim: #8d94a5;
+    --ok: #4ade80; --bad: #f87171; --warn: #fbbf24; --accent: #60a5fa;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    padding: 0 16px 48px;
+  }
+  header {
+    display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+    padding-block: 24px 16px; border-bottom: 1px solid var(--line); margin-bottom: 20px;
+  }
+  h1 { font-size: 20px; margin: 0; font-weight: 650; }
+  .meta { color: var(--dim); font-size: 13px; }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .card h2 { font-size: 15px; margin: 0 0 2px; display: flex; align-items: center; gap: 8px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .dot.ok { background: var(--ok); } .dot.bad { background: var(--bad); }
+  .dot.idle { background: var(--dim); } .dot.off { background: #3a3f4d; }
+  .sched { color: var(--dim); font-size: 13px; margin-bottom: 10px; }
+  dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; margin: 0; font-size: 13px; }
+  dt { color: var(--dim); } dd { margin: 0; }
+  .sends { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 10px; font-size: 13px; }
+  .sends div { color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sends strong { color: var(--text); font-weight: 550; }
+  .err { color: var(--bad); font-size: 13px; margin-top: 8px; word-break: break-word; }
+  section { margin-top: 28px; }
+  section h2 { font-size: 15px; margin: 0 0 10px; }
+  pre {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 12px 14px; max-height: 420px; overflow: auto; font-size: 12px;
+    line-height: 1.55; margin: 0; white-space: pre-wrap; word-break: break-word;
+  }
+  .empty { color: var(--dim); }
+  @media (max-width: 480px) { .grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+  <header>
+    <h1 id="title">personal-pi-home</h1>
+    <span class="meta" id="subtitle">loading…</span>
+  </header>
+
+  <div class="grid" id="jobs"></div>
+
+  <section>
+    <h2>Log</h2>
+    <pre id="log">loading…</pre>
+  </section>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+function age(seconds) {
+  if (seconds === null || seconds === undefined) return "never";
+  if (seconds < 90) return Math.round(seconds) + "s ago";
+  if (seconds < 5400) return Math.round(seconds / 60) + " min ago";
+  if (seconds < 172800) return Math.round(seconds / 3600) + " h ago";
+  return Math.round(seconds / 86400) + " d ago";
+}
+
+function stateOf(job) {
+  if (!job.enabled) return ["off", "disabled"];
+  if (!job.last_run) return ["idle", "not run yet"];
+  if (job.last_run.status === "error") return ["bad", "last run failed"];
+  if (job.last_run.status === "running") return ["idle", "running"];
+  return ["ok", "ok"];
+}
+
+function card(job) {
+  const [cls, label] = stateOf(job);
+  const last = job.last_run || {};
+  const sends = (job.sends || []).slice(0, 3).map(
+    (s) => `<div><strong>${esc(s.subject || "(no subject)")}</strong> — ${esc(s.sent_at || "")}</div>`
+  ).join("") || `<div class="empty">nothing sent yet</div>`;
+  return `
+    <div class="card">
+      <h2><span class="dot ${cls}"></span>${esc(job.name)}</h2>
+      <div class="sched">${esc(job.schedule)} · ${esc(label)}</div>
+      <dl>
+        <dt>last run</dt><dd>${age(job.last_run_age)}</dd>
+        <dt>sent</dt><dd>${last.sent ?? 0}</dd>
+        <dt>tracked</dt><dd>${(job.counts && job.counts.seen) || 0} item(s)</dd>
+      </dl>
+      ${last.error ? `<div class="err">${esc(last.error)}</div>` : ""}
+      <div class="sends">${sends}</div>
+    </div>`;
+}
+
+function esc(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (c) => (
+    {"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]
+  ));
+}
+
+async function refresh() {
+  try {
+    const status = await (await fetch("/api/status")).json();
+    $("title").textContent = status.hub_name;
+    $("subtitle").textContent =
+      `${status.jobs.length} job(s) · ${status.timezone} · updated ${status.generated_at}Z`;
+    $("jobs").innerHTML = status.jobs.length
+      ? status.jobs.map(card).join("")
+      : `<div class="card empty">No job state yet. Run the hub once:
+         <code>python -m src.main --once</code></div>`;
+  } catch (err) {
+    $("subtitle").textContent = "cannot reach the hub API";
+  }
+  try {
+    const log = await (await fetch("/api/log?lines=200")).json();
+    const box = $("log");
+    const pinned = box.scrollTop + box.clientHeight >= box.scrollHeight - 40;
+    box.textContent = log.lines.join("\n") || "(log is empty)";
+    if (pinned) box.scrollTop = box.scrollHeight;
+  } catch (err) { /* the log is a nice-to-have; the cards are the point */ }
+}
+
+refresh();
+setInterval(refresh, 10000);
+</script>
+</body>
+</html>

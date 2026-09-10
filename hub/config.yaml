@@ -1,0 +1,66 @@
+# ─────────────────────────────────────────────────────────────
+#  personal-pi-home — your hub, configured
+#
+#  This file holds every DECISION: which jobs run, when, and how they're
+#  tuned. It's committed to git, so `git log config.yaml` ends up being
+#  the story of how your hub got tuned.
+#
+#  Secrets live in `.env` instead, and never here.
+#
+#  After any edit:  cd hub && python -m src.main --list
+# ─────────────────────────────────────────────────────────────
+
+# Shown on the dashboard and in notification subjects. Name your box.
+hub_name: my-pi-home
+
+# IANA timezone. Every schedule below is local wall-clock time in this
+# zone, whatever the host clock says — this is the first line to change.
+timezone: UTC
+
+logging:
+  # Days of daily-rotated DEBUG logs to keep. The detail is what lets you
+  # work out, a week later, why a job did something odd.
+  retention_days: 14
+
+
+# ── Where notifications go ────────────────────────────────────────────
+# Channels read their credentials from .env; this only picks between
+# them. Anything unconfigured is skipped, and if nothing is configured
+# messages go to the log — so the hub works on day one either way.
+#
+# Available: console, ntfy, telegram, discord, email, line
+notify:
+  default_channels: [console]
+
+  # Per-job overrides. Push glanceable things to your phone; send things
+  # you'll want to search again to email.
+  routes: {}
+  #  hello: [email]
+  #  bins:  [ntfy, email]
+
+
+# ── Jobs ──────────────────────────────────────────────────────────────
+# Each key matches the NAME in a file under hub/src/jobs/. A block takes
+# `enabled`, `schedule`, and whatever options that job's OPTIONS declares.
+#
+# Schedules come in three shapes:
+#     schedule: {every: 15m}               poll — 15m / 4h / 1d
+#     schedule: {daily_at: "07:00"}        once a day, with catch-up
+#     schedule: {weekly_at: "mon 08:00"}   once a week, with catch-up
+#
+# "With catch-up" means: if the box was off at 07:00, the next tick that
+# day still sends — but it never sends twice for the same window.
+jobs:
+
+  # START HERE. Does nothing, daily. Its whole purpose is to prove the
+  # plumbing works: container up, schedule firing, state volume writable,
+  # timezone right, messages arriving. Watch for it on the dashboard,
+  # then copy hub/src/jobs/hello.py to write your first real job.
+  hello:
+    enabled: true
+    schedule: {daily_at: "09:00"}
+    greeting: Hello from your hub
+
+  # Your jobs go here. Copy hub/src/jobs/hello.py, give it a new NAME,
+  # drop the file in hub/src/jobs/, and add its block below.
+  # See docs/ADD_A_JOB.md.
