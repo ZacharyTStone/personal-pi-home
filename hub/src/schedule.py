@@ -152,6 +152,27 @@ class Schedule:
             return boundary - timedelta(days=7) if days_since == 0 else None
         return None
 
+    def next_run(self, last_run: Optional[datetime], now: datetime) -> datetime:
+        """When this job will next run, assuming the loop keeps ticking.
+
+        Exists so `--list` can answer the question everyone actually has
+        after editing config.yaml: "is this going to fire, and when?" A
+        schedule you have to simulate in your head is one you get wrong.
+        """
+        if self.is_due(last_run, now):
+            return now
+        if self.kind == "interval":
+            base = last_run or now
+            return base + timedelta(seconds=self.interval_seconds)
+        if self.kind == "daily":
+            boundary = datetime.combine(now.date(), self.at)
+            # Not due and before the boundary → today; otherwise today's
+            # window is already served, so the next one is tomorrow.
+            return boundary if now < boundary else boundary + timedelta(days=1)
+        days_ahead = (self.weekday - now.weekday()) % 7
+        candidate = datetime.combine(now.date() + timedelta(days=days_ahead), self.at)
+        return candidate if candidate > now else candidate + timedelta(days=7)
+
     def describe(self) -> str:
         if self.kind == "interval":
             seconds = self.interval_seconds

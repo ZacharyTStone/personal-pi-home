@@ -1,0 +1,9 @@
+# Keep the build context small and the image clean. Nothing here is
+# needed to run the hub, and `data/` in particular can be hundreds of
+# megabytes of SQLite and logs on a box that has been up a while.
+data/
+tests/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/

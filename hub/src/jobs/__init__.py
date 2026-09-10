@@ -13,8 +13,7 @@ Python file with a `run(ctx)` function and a few constants:
         ctx.send("Bins", "Tonight: recycling 🗑")
 
 Drop the file in and it appears in `--list`, in `config.yaml` and on the
-dashboard. Delete the file and it's gone. The list you have to update by
-hand is the one that rots, so there isn't one.
+dashboard. Delete it and it's gone.
 """
 from __future__ import annotations
 

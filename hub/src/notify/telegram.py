@@ -51,12 +51,9 @@ class TelegramChannel:
 
 
 def chunk_text(text: str, limit: int) -> List[str]:
-    """Split on line boundaries rather than truncating.
+    """Split on line boundaries rather than truncating, so nothing is lost.
 
-    Truncation is the bug you find a month later: the interesting item was
-    the one that fell off the bottom. Splitting keeps every line, and
-    keeps them readable by never cutting mid-line unless a single line is
-    itself longer than the limit.
+    Only cuts mid-line when a single line exceeds the limit on its own.
     """
     if len(text) <= limit:
         return [text]
