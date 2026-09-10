@@ -1,0 +1,29 @@
+# Secrets — never commit these
+.env
+*.env
+!.env.example
+hub/secrets/
+
+# Runtime state
+hub/data/*.db
+hub/data/*.db-journal
+hub/data/*.db-wal
+hub/data/*.db-shm
+hub/data/*.json
+*.log
+*.log.*
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
