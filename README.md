@@ -1,7 +1,8 @@
 # personal-pi-home
 
 Boilerplate for a Raspberry Pi (or any always-on box) that runs scheduled
-jobs and sends you the results.
+jobs and sends you the results. Extracted from a personal Pi hub running
+10+ jobs.
 
 Ships with one example job, a status page, and a Docker setup. You add
 the jobs.
